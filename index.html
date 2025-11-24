@@ -316,7 +316,7 @@ function handleJump(e) {
 
     const now = Date.now();
     // Debounce: Impede pulos muito rápidos (Ghost Clicks)
-    if (now - lastJumpTime < JUMP_COOLDOWN) return;
+    // if (now - lastJumpTime < JUMP_COOLDOWN) return;
 
     lastJumpTime = now;
     kandela.jump();
@@ -837,3 +837,4 @@ b.draw(ctx, 0);
 </script>
 </body>
 </html>
+
