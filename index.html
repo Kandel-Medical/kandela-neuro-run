@@ -185,7 +185,6 @@
 <script>
     (function() {
         const tg = window.Telegram.WebApp;
-        // Verifica se há dados de inicialização do Telegram
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const isTelegram = tg.initData && tg.initData.length > 0;
 
@@ -234,8 +233,8 @@
 
 <script>
 /**
- * KANDELA: NEURO RUN (Redesign & Version Label)
- * Versão 1.9 - Character Art Update + Footer
+ * KANDELA: NEURO RUN (Stable Revert + Minimalist Art)
+ * Versão 1.9 - Física revertida para v1.6 (Estável) + Visual Minimalista
  */
 
 // --- TELEGRAM INIT ---
@@ -256,14 +255,14 @@ let gameRunning = false;
 let frameId;
 let score = 0;
 let coins = 0;
-let gameSpeed = 6.0;
-let initialSpeed = 6.0;
-let speedMultiplier = 0.0005;
+let gameSpeed = 8.0;
+let initialSpeed = 8.0;
+let speedMultiplier = 0.002;
 
 // Time Management
 let lastTime = 0;
 
-// Physics Tuning
+// Physics Tuning (Revertido para valores v1.6)
 let gravity = 0.8; 
 
 // Resize handling
@@ -327,17 +326,18 @@ class KandelaBot {
         this.x = 50;
         this.y = canvas.height - 150;
         this.vy = 0;
-        this.jumpForce = -14.5;
+        this.jumpForce = -13; // Revertido para v1.6
         this.grounded = false;
         this.doubleJumpAvailable = true;
-        this.colorSuit = '#A81C2A'; // "Sorvete de Morango" Red
+        this.colorSuit = '#A81C2A'; // Vermelho "Kandel"
         this.colorHair = '#F0F0F5';
         this.legAnim = 0;
     }
 
     update(dt) {
-        this.y += this.vy * dt;
+        // REVERSÃO: Aplicar Gravidade ANTES da posição (Comportamento "Zoado"/Clássico)
         this.vy += gravity * dt;
+        this.y += this.vy * dt;
 
         const floorY = canvas.height - 100;
         if (this.y + this.height > floorY) {
@@ -367,96 +367,58 @@ class KandelaBot {
     draw() {
         ctx.save();
         
-        // Cyberpunk Aura
+        // Aura
         ctx.shadowBlur = 15;
         ctx.shadowColor = "rgba(255, 0, 85, 0.4)";
 
-        const legSwing = this.grounded ? Math.sin(this.legAnim) * 15 : -8;
-        const armSwing = this.grounded ? -Math.sin(this.legAnim) * 10 : -10;
+        const legSwing = this.grounded ? Math.sin(this.legAnim) * 15 : -5;
         
-        // --- LEGS (Red Boots + Dark Tights) ---
-        // Back Leg
-        this.drawLeg(this.x + 12, this.y + 40, 8, 30 - legSwing);
-        // Front Leg
-        this.drawLeg(this.x + 24, this.y + 40, 8, 30 + legSwing);
+        // --- DESIGN MINIMALISTA ---
+        // Focamos na silhueta e cores icônicas, sem muitos detalhes internos
 
-        // --- BODY (Red Plug Suit) ---
+        // Pernas (Blocos Sólidos com movimento)
+        ctx.fillStyle = '#1a1a1a'; // Dark tights
+        // Perna Trás
+        ctx.fillRect(this.x + 12, this.y + 35, 10, 35 - legSwing);
+        // Perna Frente
+        ctx.fillRect(this.x + 22, this.y + 35, 10, 35 + legSwing);
+
+        // Corpo (Traje Plug Suit Minimalista)
         ctx.fillStyle = this.colorSuit;
+        // Torso simplificado com curvas suaves
         ctx.beginPath();
-        // Stylized Torso (Shoulders to Hips)
-        ctx.moveTo(this.x + 8, this.y + 20); // Shoulder L
-        ctx.lineTo(this.x + 36, this.y + 20); // Shoulder R
-        ctx.lineTo(this.x + 32, this.y + 42); // Hip R
-        ctx.lineTo(this.x + 12, this.y + 42); // Hip L
+        ctx.moveTo(this.x + 5, this.y + 20);
+        ctx.lineTo(this.x + 35, this.y + 20);
+        ctx.lineTo(this.x + 30, this.y + 40);
+        ctx.lineTo(this.x + 10, this.y + 40);
         ctx.closePath();
         ctx.fill();
 
-        // Suit Details (Cyber Lines)
-        ctx.strokeStyle = "rgba(0,0,0,0.3)";
-        ctx.lineWidth = 1;
+        // Cabeça
+        ctx.shadowBlur = 0; 
+        ctx.fillStyle = "#ffccaa"; // Pele
         ctx.beginPath();
-        ctx.moveTo(this.x + 22, this.y + 20); // Center line
-        ctx.lineTo(this.x + 22, this.y + 42);
-        ctx.stroke();
-
-        // --- ARMS (Simple Swing) ---
-        ctx.fillStyle = '#801520'; // Slightly darker red for arms
-        // Front Arm
-        ctx.save();
-        ctx.translate(this.x + 22, this.y + 22); // Pivot at shoulder
-        ctx.rotate(armSwing * 0.05); // Subtle rotation
-        ctx.fillRect(-3, 0, 6, 20); 
-        // Glove
-        ctx.fillStyle = '#111';
-        ctx.fillRect(-3, 18, 6, 6);
-        ctx.restore();
-
-        // --- HEAD AREA ---
-        // Neck (Black collar)
-        ctx.fillStyle = "#222"; 
-        ctx.fillRect(this.x + 19, this.y + 16, 6, 4);
-
-        // Face
-        ctx.shadowBlur = 0; // Clean face
-        ctx.fillStyle = "#ffccaa";
-        ctx.beginPath();
-        ctx.arc(this.x + 22, this.y + 12, 10, 0, Math.PI * 2);
+        ctx.arc(this.x + 20, this.y + 12, 11, 0, Math.PI * 2);
         ctx.fill();
 
-        // --- HAIR (White Bob Cut - Ghost in the Shell style) ---
+        // Cabelo (Bob Cut Minimalista)
         ctx.shadowBlur = 10;
         ctx.shadowColor = "rgba(240, 240, 255, 0.5)";
         ctx.fillStyle = this.colorHair;
         ctx.beginPath();
-        // Top of head
-        ctx.arc(this.x + 22, this.y + 10, 11, Math.PI, 0); 
-        // Right side hair
-        ctx.lineTo(this.x + 34, this.y + 20); 
-        ctx.lineTo(this.x + 30, this.y + 18); // Cut in
-        // Bangs (Angular)
-        ctx.lineTo(this.x + 22, this.y + 12); // Center bang point
-        ctx.lineTo(this.x + 10, this.y + 18); // Left side
-        ctx.lineTo(this.x + 8, this.y + 20); 
+        ctx.arc(this.x + 20, this.y + 10, 12, Math.PI, 0); // Topo
+        ctx.lineTo(this.x + 34, this.y + 20); // Lado Direito
+        ctx.lineTo(this.x + 6, this.y + 20);  // Lado Esquerdo
+        ctx.closePath();
         ctx.fill();
         
-        // --- EYE (Cybernetic Visor/Eye) ---
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = "#f00";
+        // Olho Cibernético (Ponto Único Vermelho)
         ctx.fillStyle = "#ff0000";
-        ctx.beginPath();
-        ctx.arc(this.x + 26, this.y + 12, 2.5, 0, Math.PI*2); // Red eye
-        ctx.fill();
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "#f00";
+        ctx.fillRect(this.x + 24, this.y + 11, 4, 2);
 
         ctx.restore();
-    }
-
-    drawLeg(x, y, w, h) {
-        // Upper leg (Dark Suit)
-        ctx.fillStyle = '#222';
-        ctx.fillRect(x, y, w, h * 0.6);
-        // Boot (Red)
-        ctx.fillStyle = '#A81C2A';
-        ctx.fillRect(x - 1, y + (h * 0.6), w + 2, h * 0.4);
     }
 }
 
@@ -732,9 +694,9 @@ function drawBackground(dt) {
     ctx.fillStyle = "#0ff";
     ctx.font = "12px Share Tech Mono";
     ctx.textAlign = "center";
-    ctx.globalAlpha = 0.7;
-    // Desenha abaixo do chão
-    ctx.fillText("Neuro-Run v1.9", canvas.width / 2, canvas.height - 20);
+    ctx.globalAlpha = 0.5;
+    // Desenha abaixo do chão, mas visível
+    ctx.fillText("Neuro-Run v1.9", canvas.width / 2, canvas.height - 15);
     ctx.restore();
 }
 
