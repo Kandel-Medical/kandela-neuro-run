@@ -234,8 +234,8 @@
 
 <script>
 /**
- * KANDELA: NEURO RUN (Stable Speed Edition)
- * Versão 1.6 - Delta Time Implementation
+ * KANDELA: NEURO RUN (Physics Normalized)
+ * Versão 1.8 - Fix: Order of Operations + Jump Force Tuning
  */
 
 // --- TELEGRAM INIT ---
@@ -256,15 +256,19 @@ let gameRunning = false;
 let frameId;
 let score = 0;
 let coins = 0;
-let gameSpeed = 8.0;
-let initialSpeed = 8.0;
-let speedMultiplier = 0.002;
+let gameSpeed = 6.0;
+let initialSpeed = 6.0;
+let speedMultiplier = 0.0005;
 
-// Time Management (Delta Time)
+// Time Management
 let lastTime = 0;
 
-// Physics
-let gravity = 0.8;
+// Input Management (Debounce)
+let lastJumpTime = 0;
+const JUMP_COOLDOWN = 150; // ms
+
+// Physics Tuning (Ajuste fino para sensação "leve")
+let gravity = 0.8; // Reduzido levemente (era 0.6)
 
 // Resize handling
 function resize() {
@@ -276,59 +280,57 @@ resize();
 
 // --- DATABASE (KANDEL.iA) ---
 const neuroFacts = [
-    "O Filtro Notch (60Hz/50Hz) remove ruído da rede elétrica, mas pode distorcer potenciais de latência curta se usado indiscriminadamente. (artefato de 'ringing')",
+    "O Filtro Notch (60Hz/50Hz) remove ruído da rede elétrica, mas pode distorcer potenciais de latência curta (artefato de 'ringing').",
     "O CMAP (Potencial de Ação Muscular Composto) avalia a integridade da junção neuromuscular e a condução motora.",
-    "A impedância ideal dos eletrodos em PEs deve ser < 5 kOhms. Impedância alta = Alto Ruído. (boa relação sinal-ruído)",
-    "Latência é o tempo (ms) entre o estímulo elétrico e o início da despolarização.",
-    "Latência é o tempo decorrido entre o estímulo elétrico e o início da resposta evocada.",
-    "A onda F avalia a condução proximal do nervo motor e a excitabilidade do neurônio motor alfa.",
+    "A impedância ideal dos eletrodos em PEs deve ser < 5 kOhms. Impedância alta = Alto Ruído.",
+    "Latência é o tempo decorrido (ms) entre o estímulo elétrico e o início da resposta evocada.",
     "A onda F avalia a condução proximal. Sua ausência pode indicar bloqueio proximal ou lesão radicular.",
-    "O Reflexo H é eletrofisiologicamente análogo ao reflexo miotático (tendíneo).",
     "O Reflexo H é o análogo elétrico do reflexo miotático. Útil em radiculopatias S1.",
-    "Em IOM, Potenciais Evocados Motores (MEP) são altamente sensíveis à anestesia inalatória. Prefira TIVA (Anestesia Venosa Total).",
     "Em IOM, Anestésicos Halogenados suprimem os MEPs (Motores). Prefira Propofol/Remifentanil (TIVA).",
     "O sistema Neurosoft de EEG exporta nativamente para EDF+, permitindo análise em softwares de terceiros.",
     "Sempre informe o Digisac ao abrir chamado. Sem Digisac = Ticket suspeito.",
     "Ticket no Movidesk sem Nº da OS atrasa o atendimento. Sempre informe a OS do equipamento.",
     "Crosstalk: Mantenha cabos de estimulação longe dos cabos de registro para evitar artefato de estímulo.",
-    "Jitter é a variabilidade no intervalo interpotencial observada em estudos de Fibra Única (SFEMG).",
     "Jitter (SFEMG) aumentado é o marcador mais sensível para Miastenia Gravis.",
-    "A Montagem Referencial usa um eletrodo ativo sobre o músculo (ou local que tem potencial) e uma referência em local inativo (tendão/osso).",
+    "A Montagem Referencial usa um eletrodo ativo sobre o músculo e uma referência em local inativo.",
     "Aterramento (Ground): Útil entre o estimulo e o registro. Funciona como um 'dreno' de corrente.",
     "SSEP (Somatossensitivo): Monitora a integridade das colunas dorsais da medula.",
     "TOF (Train of Four): Monitora o nível de bloqueio neuromuscular. 4 respostas iguais = Sem bloqueio.",
-    "Estimulação Repetitiva: Queda > 10% na amplitude (decremento) sugere distúrbio pós-sináptico.",
-    "O teste de Estimulação Repetitiva é crucial para diagnóstico de Miastenia Gravis.",
+    "O teste de Estimulação Repetitiva é crucial para diagnóstico de Miastenia Gravis (Decremento > 10%).",
     "Invoices vencidas bloqueiam o envio de licenças atualizadas. Use a Kandela para checar liquidez!",
-    "Escutar o cliente e confiar nele são coisas diferentes! Foque em reunir o máximo de informações para agir da maneira mais esclarecida.",
-    "Antes de perguntar qualquer merda pra Neurosoft, confira internamente com seus colegas ou com os Especialistas.",
-    "Ganho (Sensibilidade): Medido em uV/div ou mV/div. Ajusta o 'tamanho vertical' da onda. Escala vertical.",
-    "Varredura (Velocidade): Medido em ms/div. Ajusta a 'velocidade' do traçado. Escala horizontal",
+    "Escutar o cliente e confiar nele são coisas diferentes! Reúna fatos técnicos (logs, vídeos).",
+    "Antes de perguntar de forma abobada pra Neurosoft, confira internamente com os Especialistas.",
+    "Ganho (Sensibilidade): Medido em uV/div. Ajusta a escala vertical da onda.",
+    "Varredura (Velocidade): Medido em ms/div. Ajusta a escala horizontal do traçado.",
     "Ruído de 60Hz parece uma 'corda grossa' no sinal. Verifique o aterramento do paciente!"
 ];
 
 // Input Handling
-const inputState = { jump: false };
-
-function handleJump() {
+function handleJump(e) {
     if (!gameRunning) return;
+    
+    // Se for evento de toque, previne comportamento padrão (scroll/zoom/mouse emulation)
+    if (e && e.type === 'touchstart') {
+        e.preventDefault();
+    }
+
+    const now = Date.now();
+    // Debounce: Impede pulos muito rápidos (Ghost Clicks)
+    if (now - lastJumpTime < JUMP_COOLDOWN) return;
+
+    lastJumpTime = now;
     kandela.jump();
 }
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.code === 'ArrowUp') {
-        handleJump();
+        handleJump(e);
     }
 });
 
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    handleJump();
-}, { passive: false });
-
-canvas.addEventListener('mousedown', (e) => {
-    handleJump();
-});
+// Listener unificado
+canvas.addEventListener('touchstart', handleJump, { passive: false });
+canvas.addEventListener('mousedown', handleJump);
 
 // --- CLASSES ---
 
@@ -339,7 +341,7 @@ class KandelaBot {
         this.x = 50;
         this.y = canvas.height - 150;
         this.vy = 0;
-        this.jumpForce = -13;
+        this.jumpForce = -14.5; // Aumentado (era -13) para garantir altura
         this.grounded = false;
         this.doubleJumpAvailable = true;
         this.colorSuit = '#A81C2A';
@@ -348,9 +350,13 @@ class KandelaBot {
     }
 
     update(dt) {
+        // CORREÇÃO FÍSICA: Move PRIMEIRO, acelera DEPOIS.
+        // Isso garante que o impulso inicial do pulo seja aproveitado no primeiro frame,
+        // igualando o comportamento entre 60hz (Desktop) e 120hz (Mobile).
+        this.y += this.vy * dt;
+
         // Apply Gravity scaled by Delta Time
         this.vy += gravity * dt;
-        this.y += this.vy * dt;
 
         const floorY = canvas.height - 100;
         if (this.y + this.height > floorY) {
