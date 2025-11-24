@@ -261,8 +261,8 @@ let gameRunning = false;
 let frameId;
 let score = 0;
 let coins = 0;
-let gameSpeed = 4.0;
-let initialSpeed = 4.0;
+let gameSpeed = 6.0;
+let initialSpeed = 6.0;
 let speedMultiplier = 0.0005;
 
 // Physics
@@ -655,7 +655,7 @@ function drawBackground() {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    buildingScroll += gameSpeed * 0.3;
+    buildingScroll += gameSpeed * 0.5;
     
     const lastBuilding = buildings[buildings.length - 1];
     if (lastBuilding.x - buildingScroll < canvas.width + 200) {
@@ -819,4 +819,5 @@ b.draw(ctx, 0);
 </body>
 
 </html>
+
 
