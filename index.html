@@ -185,19 +185,14 @@
 <script>
     (function() {
         const tg = window.Telegram.WebApp;
-        // Verifica se há dados de inicialização do Telegram (initData é vazio fora do app)
-        // Permite localhost e 127.0.0.1 para testes de desenvolvimento
+        // Verifica se há dados de inicialização do Telegram
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const isTelegram = tg.initData && tg.initData.length > 0;
 
         if (!isTelegram && !isLocal) {
             document.getElementById('access-denied').style.display = 'flex';
-            // Interrompe o restante do carregamento ocultando o container do jogo
-            // O CSS já oculta, mas garantimos aqui ou removemos do DOM
             const gameContainer = document.getElementById('game-container');
             if (gameContainer) gameContainer.remove();
-            
-            // Lança erro para parar execução de scripts subsequentes
             throw new Error("KANDELA SECURITY: Acesso externo não autorizado.");
         }
     })();
@@ -239,8 +234,8 @@
 
 <script>
 /**
- * KANDELA: NEURO RUN (Secure WebApp Edition)
- * Versão 1.5 - Logic Lock Enabled
+ * KANDELA: NEURO RUN (Stable Speed Edition)
+ * Versão 1.6 - Delta Time Implementation
  */
 
 // --- TELEGRAM INIT ---
@@ -261,12 +256,15 @@ let gameRunning = false;
 let frameId;
 let score = 0;
 let coins = 0;
-let gameSpeed = 6.0;
-let initialSpeed = 6.0;
-let speedMultiplier = 0.0005;
+let gameSpeed = 8.0;
+let initialSpeed = 8.0;
+let speedMultiplier = 0.002;
+
+// Time Management (Delta Time)
+let lastTime = 0;
 
 // Physics
-let gravity = 0.6;
+let gravity = 0.8;
 
 // Resize handling
 function resize() {
@@ -303,7 +301,7 @@ const neuroFacts = [
     "O teste de Estimulação Repetitiva é crucial para diagnóstico de Miastenia Gravis.",
     "Invoices vencidas bloqueiam o envio de licenças atualizadas. Use a Kandela para checar liquidez!",
     "Escutar o cliente e confiar nele são coisas diferentes! Foque em reunir o máximo de informações para agir da maneira mais esclarecida.",
-    "Antes de perguntar de forma abobada pra Neurosoft, confira internamente com seus colegas ou com os Especialistas.",
+    "Antes de perguntar qualquer merda pra Neurosoft, confira internamente com seus colegas ou com os Especialistas.",
     "Ganho (Sensibilidade): Medido em uV/div ou mV/div. Ajusta o 'tamanho vertical' da onda. Escala vertical.",
     "Varredura (Velocidade): Medido em ms/div. Ajusta a 'velocidade' do traçado. Escala horizontal",
     "Ruído de 60Hz parece uma 'corda grossa' no sinal. Verifique o aterramento do paciente!"
@@ -349,9 +347,10 @@ class KandelaBot {
         this.legAnim = 0;
     }
 
-    update() {
-        this.vy += gravity;
-        this.y += this.vy;
+    update(dt) {
+        // Apply Gravity scaled by Delta Time
+        this.vy += gravity * dt;
+        this.y += this.vy * dt;
 
         const floorY = canvas.height - 100;
         if (this.y + this.height > floorY) {
@@ -363,7 +362,7 @@ class KandelaBot {
             this.grounded = false;
         }
 
-        if (gameRunning) this.legAnim += 0.25;
+        if (gameRunning) this.legAnim += 0.25 * dt;
     }
 
     jump() {
@@ -448,8 +447,8 @@ class Obstacle {
         }
     }
 
-    update() {
-        this.x -= gameSpeed;
+    update(dt) {
+        this.x -= gameSpeed * dt;
         if (this.x + this.width < 0) this.markedForDeletion = true;
     }
 
@@ -510,9 +509,9 @@ class Collectible {
         this.type = Math.random() > 0.8 ? 'invoice' : 'clean_signal';
     }
 
-    update() {
-        this.x -= gameSpeed;
-        this.anim += 0.1;
+    update(dt) {
+        this.x -= gameSpeed * dt;
+        this.anim += 0.1 * dt;
         if (this.x + this.size < 0) this.markedForDeletion = true;
     }
 
@@ -552,10 +551,10 @@ class Particle {
         this.color = color;
         this.life = 1.0;
     }
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= 0.05;
+    update(dt) {
+        this.x += this.speedX * dt;
+        this.y += this.speedY * dt;
+        this.life -= 0.05 * dt;
     }
     draw() {
         ctx.save();
@@ -631,6 +630,7 @@ function init() {
     score = 0;
     coins = 0;
     gameSpeed = initialSpeed;
+    lastTime = 0; // Reset time tracker
     
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
@@ -639,7 +639,7 @@ function init() {
     document.getElementById('speed-val').innerText = '1.0x';
     
     gameRunning = true;
-    animate();
+    requestAnimationFrame(animate);
 }
 
 function createParticles(x, y, count, color) {
@@ -648,14 +648,14 @@ function createParticles(x, y, count, color) {
     }
 }
 
-function drawBackground() {
+function drawBackground(dt) {
     let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     grad.addColorStop(0, "#020208");
     grad.addColorStop(1, "#1a0a2e");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    buildingScroll += gameSpeed * 0.5;
+    buildingScroll += (gameSpeed * 0.5) * dt;
     
     const lastBuilding = buildings[buildings.length - 1];
     if (lastBuilding.x - buildingScroll < canvas.width + 200) {
@@ -733,9 +733,10 @@ function checkCollisions() {
     });
 }
 
-function spawnManager() {
-    obstacleTimer++;
-    collectibleTimer++;
+function spawnManager(dt) {
+    // Timers now increment by Delta Time (relative to 60fps frame)
+    obstacleTimer += dt;
+    collectibleTimer += dt;
 
     let spawnThreshold = 100 - (gameSpeed * 2.5); 
     if (spawnThreshold < 35) spawnThreshold = 35;
@@ -765,40 +766,52 @@ function gameOver() {
     document.getElementById('trivia-text').innerText = randomFact;
 }
 
-function animate() {
+function animate(timestamp) {
     if (!gameRunning) return;
+
+    // --- Delta Time Logic ---
+    if (!lastTime) lastTime = timestamp;
+    const deltaTime = (timestamp - lastTime) / 16.67; // Normalize to 60fps (16.67ms per frame)
+    lastTime = timestamp;
+
+    // Safety Cap: evita saltos enormes se a aba ficar inativa
+    if (deltaTime > 4) {
+        frameId = requestAnimationFrame(animate);
+        return; 
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    gameSpeed += speedMultiplier;
+    // Update logic with DT
+    gameSpeed += speedMultiplier * deltaTime;
     
     const displaySpeed = (gameSpeed / initialSpeed).toFixed(1);
     document.getElementById('speed-val').innerText = displaySpeed + "x";
     
-    drawBackground();
+    drawBackground(deltaTime);
     
-    score += 0.1 + (gameSpeed * 0.01); 
+    score += (0.1 + (gameSpeed * 0.01)) * deltaTime; 
     document.getElementById('score-val').innerText = Math.floor(score);
 
-    kandela.update();
+    kandela.update(deltaTime);
     kandela.draw();
 
-    spawnManager();
+    spawnManager(deltaTime);
 
     obstacles.forEach((obs, index) => {
-        obs.update();
+        obs.update(deltaTime);
         obs.draw();
         if (obs.markedForDeletion) obstacles.splice(index, 1);
     });
 
     collectibles.forEach((col, index) => {
-        col.update();
+        col.update(deltaTime);
         col.draw();
         if (col.markedForDeletion) collectibles.splice(index, 1);
     });
     
     particles.forEach((p, index) => {
-        p.update();
+        p.update(deltaTime);
         p.draw();
         if (p.life <= 0) particles.splice(index, 1);
     });
@@ -817,7 +830,4 @@ b.draw(ctx, 0);
 
 </script>
 </body>
-
 </html>
-
-
