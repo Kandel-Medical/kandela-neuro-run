@@ -234,8 +234,8 @@
 
 <script>
 /**
- * KANDELA: NEURO RUN (Physics Normalized)
- * Versão 1.8 - Fix: Order of Operations + Jump Force Tuning
+ * KANDELA: NEURO RUN (Redesign & Version Label)
+ * Versão 1.9 - Character Art Update + Footer
  */
 
 // --- TELEGRAM INIT ---
@@ -263,12 +263,8 @@ let speedMultiplier = 0.0005;
 // Time Management
 let lastTime = 0;
 
-// Input Management (Debounce)
-let lastJumpTime = 0;
-const JUMP_COOLDOWN = 150; // ms
-
-// Physics Tuning (Ajuste fino para sensação "leve")
-let gravity = 0.8; // Reduzido levemente (era 0.6)
+// Physics Tuning
+let gravity = 0.8; 
 
 // Resize handling
 function resize() {
@@ -308,17 +304,7 @@ const neuroFacts = [
 // Input Handling
 function handleJump(e) {
     if (!gameRunning) return;
-    
-    // Se for evento de toque, previne comportamento padrão (scroll/zoom/mouse emulation)
-    if (e && e.type === 'touchstart') {
-        e.preventDefault();
-    }
-
-    const now = Date.now();
-    // Debounce: Impede pulos muito rápidos (Ghost Clicks)
-    // if (now - lastJumpTime < JUMP_COOLDOWN) return;
-
-    lastJumpTime = now;
+    if (e && e.type === 'touchstart') e.preventDefault();
     kandela.jump();
 }
 
@@ -341,21 +327,16 @@ class KandelaBot {
         this.x = 50;
         this.y = canvas.height - 150;
         this.vy = 0;
-        this.jumpForce = -14.5; // Aumentado (era -13) para garantir altura
+        this.jumpForce = -14.5;
         this.grounded = false;
         this.doubleJumpAvailable = true;
-        this.colorSuit = '#A81C2A';
+        this.colorSuit = '#A81C2A'; // "Sorvete de Morango" Red
         this.colorHair = '#F0F0F5';
         this.legAnim = 0;
     }
 
     update(dt) {
-        // CORREÇÃO FÍSICA: Move PRIMEIRO, acelera DEPOIS.
-        // Isso garante que o impulso inicial do pulo seja aproveitado no primeiro frame,
-        // igualando o comportamento entre 60hz (Desktop) e 120hz (Mobile).
         this.y += this.vy * dt;
-
-        // Apply Gravity scaled by Delta Time
         this.vy += gravity * dt;
 
         const floorY = canvas.height - 100;
@@ -385,54 +366,97 @@ class KandelaBot {
 
     draw() {
         ctx.save();
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "rgba(255, 0, 85, 0.6)";
-
-        const legOffset = this.grounded ? Math.sin(this.legAnim) * 12 : -8;
         
-        // Legs
-        ctx.fillStyle = '#111';
-        ctx.fillRect(this.x + 10, this.y + 40, 8, 30 - legOffset);
-        ctx.fillRect(this.x + 22, this.y + 40, 8, 30 + legOffset);
+        // Cyberpunk Aura
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "rgba(255, 0, 85, 0.4)";
 
-        // Body
+        const legSwing = this.grounded ? Math.sin(this.legAnim) * 15 : -8;
+        const armSwing = this.grounded ? -Math.sin(this.legAnim) * 10 : -10;
+        
+        // --- LEGS (Red Boots + Dark Tights) ---
+        // Back Leg
+        this.drawLeg(this.x + 12, this.y + 40, 8, 30 - legSwing);
+        // Front Leg
+        this.drawLeg(this.x + 24, this.y + 40, 8, 30 + legSwing);
+
+        // --- BODY (Red Plug Suit) ---
         ctx.fillStyle = this.colorSuit;
         ctx.beginPath();
-        ctx.roundRect(this.x, this.y + 20, this.width, 38, 6);
+        // Stylized Torso (Shoulders to Hips)
+        ctx.moveTo(this.x + 8, this.y + 20); // Shoulder L
+        ctx.lineTo(this.x + 36, this.y + 20); // Shoulder R
+        ctx.lineTo(this.x + 32, this.y + 42); // Hip R
+        ctx.lineTo(this.x + 12, this.y + 42); // Hip L
+        ctx.closePath();
         ctx.fill();
 
-        // Tech details
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x + 10, this.y + 30, 5, 15);
+        // Suit Details (Cyber Lines)
+        ctx.strokeStyle = "rgba(0,0,0,0.3)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.x + 22, this.y + 20); // Center line
+        ctx.lineTo(this.x + 22, this.y + 42);
+        ctx.stroke();
 
-        // Head
-        ctx.shadowBlur = 0;
+        // --- ARMS (Simple Swing) ---
+        ctx.fillStyle = '#801520'; // Slightly darker red for arms
+        // Front Arm
+        ctx.save();
+        ctx.translate(this.x + 22, this.y + 22); // Pivot at shoulder
+        ctx.rotate(armSwing * 0.05); // Subtle rotation
+        ctx.fillRect(-3, 0, 6, 20); 
+        // Glove
+        ctx.fillStyle = '#111';
+        ctx.fillRect(-3, 18, 6, 6);
+        ctx.restore();
+
+        // --- HEAD AREA ---
+        // Neck (Black collar)
+        ctx.fillStyle = "#222"; 
+        ctx.fillRect(this.x + 19, this.y + 16, 6, 4);
+
+        // Face
+        ctx.shadowBlur = 0; // Clean face
         ctx.fillStyle = "#ffccaa";
         ctx.beginPath();
-        ctx.arc(this.x + 20, this.y + 15, 12, 0, Math.PI * 2);
+        ctx.arc(this.x + 22, this.y + 12, 10, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hair
+        // --- HAIR (White Bob Cut - Ghost in the Shell style) ---
         ctx.shadowBlur = 10;
         ctx.shadowColor = "rgba(240, 240, 255, 0.5)";
         ctx.fillStyle = this.colorHair;
         ctx.beginPath();
-        ctx.moveTo(this.x + 2, this.y + 18);
-        ctx.quadraticCurveTo(this.x + 20, this.y - 5, this.x + 38, this.y + 18);
-        ctx.lineTo(this.x + 38, this.y + 22);
-        ctx.lineTo(this.x + 32, this.y + 22);
-        ctx.lineTo(this.x + 20, this.y + 10);
-        ctx.lineTo(this.x + 8, this.y + 22);
-        ctx.lineTo(this.x + 2, this.y + 22);
+        // Top of head
+        ctx.arc(this.x + 22, this.y + 10, 11, Math.PI, 0); 
+        // Right side hair
+        ctx.lineTo(this.x + 34, this.y + 20); 
+        ctx.lineTo(this.x + 30, this.y + 18); // Cut in
+        // Bangs (Angular)
+        ctx.lineTo(this.x + 22, this.y + 12); // Center bang point
+        ctx.lineTo(this.x + 10, this.y + 18); // Left side
+        ctx.lineTo(this.x + 8, this.y + 20); 
         ctx.fill();
         
-        // Cyber Eye
-        ctx.shadowBlur = 5;
+        // --- EYE (Cybernetic Visor/Eye) ---
+        ctx.shadowBlur = 8;
         ctx.shadowColor = "#f00";
         ctx.fillStyle = "#ff0000";
-        ctx.fillRect(this.x + 24, this.y + 13, 4, 3);
+        ctx.beginPath();
+        ctx.arc(this.x + 26, this.y + 12, 2.5, 0, Math.PI*2); // Red eye
+        ctx.fill();
 
         ctx.restore();
+    }
+
+    drawLeg(x, y, w, h) {
+        // Upper leg (Dark Suit)
+        ctx.fillStyle = '#222';
+        ctx.fillRect(x, y, w, h * 0.6);
+        // Boot (Red)
+        ctx.fillStyle = '#A81C2A';
+        ctx.fillRect(x - 1, y + (h * 0.6), w + 2, h * 0.4);
     }
 }
 
@@ -700,6 +724,18 @@ function drawBackground(dt) {
         ctx.lineTo(x - 200, canvas.height); 
         ctx.stroke();
     }
+
+    // --- VERSION LABEL ---
+    ctx.save();
+    ctx.shadowBlur = 5;
+    ctx.shadowColor = "#0ff";
+    ctx.fillStyle = "#0ff";
+    ctx.font = "12px Share Tech Mono";
+    ctx.textAlign = "center";
+    ctx.globalAlpha = 0.7;
+    // Desenha abaixo do chão
+    ctx.fillText("Neuro-Run v1.9", canvas.width / 2, canvas.height - 20);
+    ctx.restore();
 }
 
 function checkCollisions() {
@@ -837,4 +873,3 @@ b.draw(ctx, 0);
 </script>
 </body>
 </html>
-
