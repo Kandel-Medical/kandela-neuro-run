@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kandela: Neuro Run</title>
+    
+    <!-- INTEGRAÇÃO TELEGRAM WEB APP -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050510;
+            overflow: hidden;
+            font-family: 'Share Tech Mono', monospace;
+            color: #0ff;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* TELA DE ACESSO NEGADO (SEGURANÇA) */
+        #access-denied {
+            display: none; /* Oculto por padrão */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 99999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #access-denied h1 {
+            color: #ff0055;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px #ff0055;
+            border-bottom: 2px solid #ff0055;
+            padding-bottom: 10px;
+        }
+
+        #access-denied p {
+            color: #fff;
+            font-size: 1.2rem;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #050510; 
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay Styles */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            text-shadow: 0 0 10px #0ff;
+            z-index: 10;
+        }
+
+        #start-screen, #game-over-screen {
+            background: rgba(5, 5, 16, 0.95);
+            padding: 2rem;
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            pointer-events: auto;
+            max-width: 85%;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #ff0055;
+            text-shadow: 0 0 15px #ff0055;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+            color: #e0e0e0;
+        }
+
+        .btn {
+            background: #ff0055;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            text-transform: uppercase;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+            transition: all 0.2s;
+            box-shadow: 0 0 10px #ff0055;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: #d40046;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 1.2rem;
+            color: #fff;
+            text-align: left;
+            pointer-events: none;
+            z-index: 5;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .stat-label { color: #0ff; font-size: 0.8em; }
+        .stat-value { color: #fff; font-weight: bold; }
+
+        #knowledge-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 255, 255, 0.1);
+            border-left: 4px solid #ff0055;
+            text-align: left;
+            display: none;
+            font-size: 0.95rem;
+        }
+        
+        .hidden { display: none !important; }
+
+        .controls-hint {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<!-- MENSAGEM DE SEGURANÇA (BLOQUEIO) -->
+<div id="access-denied">
+    <h1>🚫 ACESSO RESTRITO</h1>
+    <p>Protocolo de Segurança Ativado.</p>
+    <br>
+    <p style="color: #0ff; font-size: 1rem;">
+        Este módulo só pode ser acessado através da interface segura da <strong>Kandela</strong> no Telegram.
+    </p>
+</div>
+
+<!-- SCRIPT DE VERIFICAÇÃO (TRAVA LÓGICA) -->
+<script>
+    (function() {
+        const tg = window.Telegram.WebApp;
+        // Verifica se há dados de inicialização do Telegram (initData é vazio fora do app)
+        // Permite localhost e 127.0.0.1 para testes de desenvolvimento
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isTelegram = tg.initData && tg.initData.length > 0;
+
+        if (!isTelegram && !isLocal) {
+            document.getElementById('access-denied').style.display = 'flex';
+            // Interrompe o restante do carregamento ocultando o container do jogo
+            // O CSS já oculta, mas garantimos aqui ou removemos do DOM
+            const gameContainer = document.getElementById('game-container');
+            if (gameContainer) gameContainer.remove();
+            
+            // Lança erro para parar execução de scripts subsequentes
+            throw new Error("KANDELA SECURITY: Acesso externo não autorizado.");
+        }
+    })();
+</script>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Score HUD -->
+    <div id="score-board">
+        <div><span class="stat-label">SCORE:</span> <span class="stat-value" id="score-val">0</span></div>
+        <div><span class="stat-label">INVOICES:</span> <span class="stat-value" id="coins-val">0</span></div>
+        <div><span class="stat-label">SPEED:</span> <span class="stat-value" id="speed-val">1.0x</span></div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="ui-layer">
+        <h1>KANDELA<br>NEURO RUN</h1>
+        <p>Colete dados limpos e invoices.<br>Evite o ruído de 60Hz.</p>
+        <button class="btn" id="start-btn">INICIAR SISTEMA</button>
+        <div class="controls-hint">Toque na tela para pular<br>(Toque duplo = Pulo Duplo)</div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="ui-layer hidden">
+        <h1>SINAL ARTEFATO</h1>
+        <p>Conexão interrompida.</p>
+        <div><span class="stat-label">SCORE FINAL:</span> <span class="stat-value" id="final-score">0</span></div>
+        
+        <div id="knowledge-box">
+            <strong style="color:#0ff">Kandel.iA Info:</strong><br>
+            <span id="trivia-text">Carregando dados...</span>
+        </div>
+
+        <br>
+        <button class="btn" id="restart-btn">REINICIAR DIAGNÓSTICO</button>
+    </div>
+</div>
+
+<script>
+/**
+ * KANDELA: NEURO RUN (Secure WebApp Edition)
+ * Versão 1.5 - Logic Lock Enabled
+ */
+
+// --- TELEGRAM INIT ---
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+if (tg.setHeaderColor) tg.setHeaderColor('#050510');
+if (tg.setBackgroundColor) tg.setBackgroundColor('#050510');
+
+// --- GAME LOGIC ---
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game State
+let gameRunning = false;
+let frameId;
+let score = 0;
+let coins = 0;
+let gameSpeed = 4.0;
+let initialSpeed = 4.0;
+let speedMultiplier = 0.0005;
+
+// Physics
+let gravity = 0.6;
+
+// Resize handling
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- DATABASE (KANDEL.iA) ---
+const neuroFacts = [
+    "O Filtro Notch (60Hz) remove ruído da rede elétrica, mas pode criar artefatos de 'ringing' em potenciais de latência curta.",
+    "O CMAP (Potencial de Ação Muscular Composto) avalia a integridade da junção neuromuscular e a condução motora.",
+    "A impedância ideal dos eletrodos deve ser < 5 kOhms. Impedância alta = Alto Ruído.",
+    "Latência é o tempo (ms) entre o estímulo elétrico e o início da despolarização.",
+    "A onda F avalia a condução proximal. Sua ausência pode indicar bloqueio proximal ou lesão radicular.",
+    "O Reflexo H é o análogo elétrico do reflexo miotático. Útil em radiculopatias S1.",
+    "Em IOM, Anestésicos Halogenados suprimem os MEPs (Motores). Prefira Propofol/Remifentanil (TIVA).",
+    "O sistema Neurosoft exporta nativamente para EDF+, permitindo análise em softwares de terceiros.",
+    "Sempre informe o SN (Serial Number) ao abrir chamado. Sem SN = Sem Peça.",
+    "Crosstalk: Mantenha cabos de estimulação longe dos cabos de registro para evitar artefato de estímulo.",
+    "Jitter (SFEMG) aumentado é o marcador mais sensível para Miastenia Gravis.",
+    "Aterramento (Ground): Sempre entre o estimulo e o registro. Funciona como um 'dreno' de corrente.",
+    "SSEP (Somatossensitivo): Monitora a integridade das colunas dorsais da medula.",
+    "TOF (Train of Four): Monitora o nível de bloqueio neuromuscular. 4 respostas iguais = Sem bloqueio.",
+    "Estimulação Repetitiva: Queda > 10% na amplitude (decremento) sugere distúrbio pós-sináptico.",
+    "Invoices vencidas bloqueiam o suporte avançado. A Kandela checa liquidez via comando 'parcelas'.",
+    "Fibra Óptica: Essencial em sala cirúrgica para isolar o paciente da rede elétrica do computador.",
+    "Ganho (Sensibilidade): Medido em uV/div ou mV/div. Ajusta o 'tamanho vertical' da onda.",
+    "Varredura (Timebase): Medido em ms/div. Ajusta a 'velocidade' do traçado.",
+    "Ruído de 60Hz parece uma 'corda grossa' no sinal. Verifique o aterramento do paciente!"
+];
+
+// Input Handling
+const inputState = { jump: false };
+
+function handleJump() {
+    if (!gameRunning) return;
+    kandela.jump();
+}
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+        handleJump();
+    }
+});
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handleJump();
+}, { passive: false });
+
+canvas.addEventListener('mousedown', (e) => {
+    handleJump();
+});
+
+// --- CLASSES ---
+
+class KandelaBot {
+    constructor() {
+        this.width = 40;
+        this.height = 70;
+        this.x = 50;
+        this.y = canvas.height - 150;
+        this.vy = 0;
+        this.jumpForce = -13;
+        this.grounded = false;
+        this.doubleJumpAvailable = true;
+        this.colorSuit = '#A81C2A';
+        this.colorHair = '#F0F0F5';
+        this.legAnim = 0;
+    }
+
+    update() {
+        this.vy += gravity;
+        this.y += this.vy;
+
+        const floorY = canvas.height - 100;
+        if (this.y + this.height > floorY) {
+            this.y = floorY - this.height;
+            this.vy = 0;
+            this.grounded = true;
+            this.doubleJumpAvailable = true;
+        } else {
+            this.grounded = false;
+        }
+
+        if (gameRunning) this.legAnim += 0.25;
+    }
+
+    jump() {
+        if (this.grounded) {
+            this.vy = this.jumpForce;
+            this.grounded = false;
+            createParticles(this.x + this.width/2, this.y + this.height, 5, '#fff');
+        } else if (this.doubleJumpAvailable) {
+            this.vy = this.jumpForce * 0.9;
+            this.doubleJumpAvailable = false;
+            createParticles(this.x + this.width/2, this.y + this.height, 8, '#0ff');
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "rgba(255, 0, 85, 0.6)";
+
+        const legOffset = this.grounded ? Math.sin(this.legAnim) * 12 : -8;
+        
+        // Legs
+        ctx.fillStyle = '#111';
+        ctx.fillRect(this.x + 10, this.y + 40, 8, 30 - legOffset);
+        ctx.fillRect(this.x + 22, this.y + 40, 8, 30 + legOffset);
+
+        // Body
+        ctx.fillStyle = this.colorSuit;
+        ctx.beginPath();
+        ctx.roundRect(this.x, this.y + 20, this.width, 38, 6);
+        ctx.fill();
+
+        // Tech details
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x + 10, this.y + 30, 5, 15);
+
+        // Head
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffccaa";
+        ctx.beginPath();
+        ctx.arc(this.x + 20, this.y + 15, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(240, 240, 255, 0.5)";
+        ctx.fillStyle = this.colorHair;
+        ctx.beginPath();
+        ctx.moveTo(this.x + 2, this.y + 18);
+        ctx.quadraticCurveTo(this.x + 20, this.y - 5, this.x + 38, this.y + 18);
+        ctx.lineTo(this.x + 38, this.y + 22);
+        ctx.lineTo(this.x + 32, this.y + 22);
+        ctx.lineTo(this.x + 20, this.y + 10);
+        ctx.lineTo(this.x + 8, this.y + 22);
+        ctx.lineTo(this.x + 2, this.y + 22);
+        ctx.fill();
+        
+        // Cyber Eye
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "#f00";
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(this.x + 24, this.y + 13, 4, 3);
+
+        ctx.restore();
+    }
+}
+
+class Obstacle {
+    constructor() {
+        this.x = canvas.width;
+        this.markedForDeletion = false;
+        this.type = Math.random() > 0.6 ? 'noise' : 'bug'; 
+        
+        if (this.type === 'noise') {
+            this.width = 60; 
+            this.height = 20;
+            this.y = canvas.height - 100 - 50 - (Math.random() * 40);
+        } else {
+            this.width = 35;
+            this.height = 35 + Math.random() * 20;
+            this.y = canvas.height - 100 - this.height;
+        }
+    }
+
+    update() {
+        this.x -= gameSpeed;
+        if (this.x + this.width < 0) this.markedForDeletion = true;
+    }
+
+    draw() {
+        ctx.save();
+        if (this.type === 'bug') {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0f0';
+            ctx.fillStyle = 'rgba(0, 20, 0, 0.8)';
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x + this.width, this.y + this.height);
+            ctx.moveTo(this.x + this.width, this.y);
+            ctx.lineTo(this.x, this.y + this.height);
+            ctx.stroke();
+            
+        } else {
+            // 60Hz Sine Wave
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#FFFF00';
+            ctx.strokeStyle = '#FFFF00';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            const cycles = 4;
+            const amplitude = this.height / 2;
+            const midY = this.y + this.height / 2;
+
+            for (let i = 0; i <= this.width; i++) {
+                const y = midY + Math.sin((i / this.width) * (Math.PI * 2 * cycles) + (Date.now() / 50)) * amplitude;
+                if (i === 0) ctx.moveTo(this.x + i, y);
+                else ctx.lineTo(this.x + i, y);
+            }
+            ctx.stroke();
+            
+            ctx.fillStyle = '#FFFF00';
+            ctx.font = '10px Share Tech Mono';
+            ctx.fillText('60Hz', this.x + 10, this.y - 5);
+        }
+        ctx.restore();
+    }
+}
+
+class Collectible {
+    constructor() {
+        this.size = 25;
+        this.x = canvas.width;
+        this.y = canvas.height - 100 - (Math.random() * 150 + 40); 
+        this.markedForDeletion = false;
+        this.anim = 0;
+        this.type = Math.random() > 0.8 ? 'invoice' : 'clean_signal';
+    }
+
+    update() {
+        this.x -= gameSpeed;
+        this.anim += 0.1;
+        if (this.x + this.size < 0) this.markedForDeletion = true;
+    }
+
+    draw() {
+        ctx.save();
+        const floatY = Math.sin(this.anim) * 5;
+        
+        if (this.type === 'invoice') {
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ff00';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('$', this.x, this.y + floatY);
+        } else {
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y + floatY);
+            ctx.lineTo(this.x + 8, this.y - 10 + floatY);
+            ctx.lineTo(this.x + 16, this.y + 10 + floatY);
+            ctx.lineTo(this.x + 24, this.y + floatY);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = Math.random() * 2 - 1;
+        this.speedY = Math.random() * 2 - 1;
+        this.color = color;
+        this.life = 1.0;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= 0.05;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.size, this.size);
+        ctx.restore();
+    }
+}
+
+class Building {
+    constructor(x) {
+        this.x = x;
+        this.width = 60 + Math.random() * 100;
+        this.height = 150 + Math.random() * 300;
+        this.windowPattern = Math.floor(Math.random() * 3);
+    }
+    
+    draw(ctx, scrollX) {
+        const drawX = this.x - scrollX;
+        const floorY = canvas.height - 100;
+        const drawY = floorY - this.height;
+
+        ctx.save();
+        ctx.fillStyle = "#080818";
+        ctx.fillRect(drawX, drawY, this.width, this.height);
+        
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(0, 255, 255, 0.2)";
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(drawX, drawY, this.width, this.height);
+
+        ctx.fillStyle = "rgba(0, 255, 255, 0.1)";
+        if (this.windowPattern === 0) {
+            for(let i=20; i<this.height; i+=30) {
+                ctx.fillRect(drawX + 5, drawY + i, this.width - 10, 2);
+            }
+        } else if (this.windowPattern === 1) {
+            ctx.fillRect(drawX + 10, drawY + 10, 4, this.height - 20);
+            ctx.fillRect(drawX + this.width - 14, drawY + 10, 4, this.height - 20);
+        }
+        ctx.restore();
+    }
+}
+
+// --- MANAGERS ---
+
+let kandela;
+let obstacles = [];
+let collectibles = [];
+let particles = [];
+let buildings = [];
+let buildingScroll = 0;
+
+let obstacleTimer = 0;
+let collectibleTimer = 0;
+
+function init() {
+    kandela = new KandelaBot();
+    obstacles = [];
+    collectibles = [];
+    particles = [];
+    
+    buildings = [];
+    let bx = 0;
+    while (bx < canvas.width * 2) {
+        let b = new Building(bx);
+        buildings.push(b);
+        bx += b.width + 10;
+    }
+
+    score = 0;
+    coins = 0;
+    gameSpeed = initialSpeed;
+    
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('score-val').innerText = '0';
+    document.getElementById('coins-val').innerText = '0';
+    document.getElementById('speed-val').innerText = '1.0x';
+    
+    gameRunning = true;
+    animate();
+}
+
+function createParticles(x, y, count, color) {
+    for(let i=0; i<count; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function drawBackground() {
+    let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, "#020208");
+    grad.addColorStop(1, "#1a0a2e");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    buildingScroll += gameSpeed * 0.3;
+    
+    const lastBuilding = buildings[buildings.length - 1];
+    if (lastBuilding.x - buildingScroll < canvas.width + 200) {
+        let b = new Building(lastBuilding.x + lastBuilding.width + 10);
+        buildings.push(b);
+    }
+    
+    if (buildings[0].x + buildings[0].width - buildingScroll < -100) {
+        buildings.shift();
+    }
+
+    buildings.forEach(b => b.draw(ctx, buildingScroll));
+
+    const floorY = canvas.height - 100;
+    
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "#ff0055";
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, floorY, canvas.width, 100);
+
+    ctx.strokeStyle = "#ff0055";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, floorY);
+    ctx.lineTo(canvas.width, floorY);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255, 0, 85, 0.3)";
+    let lineOffset = (Date.now() * (gameSpeed/4)) % 50;
+    for (let i = 0; i < canvas.width + 100; i+=50) {
+        let x = i - lineOffset;
+        ctx.beginPath();
+        ctx.moveTo(x, floorY);
+        ctx.lineTo(x - 200, canvas.height); 
+        ctx.stroke();
+    }
+}
+
+function checkCollisions() {
+    const kHitbox = {
+        x: kandela.x + 10,
+        y: kandela.y + 10,
+        w: kandela.width - 20,
+        h: kandela.height - 15
+    };
+
+    for (let obs of obstacles) {
+        let obsHitbox = { x: obs.x + 5, y: obs.y + 5, w: obs.width - 10, h: obs.height - 10 };
+        
+        if (
+            kHitbox.x < obsHitbox.x + obsHitbox.w &&
+            kHitbox.x + kHitbox.w > obsHitbox.x &&
+            kHitbox.y < obsHitbox.y + obsHitbox.h &&
+            kHitbox.y + kHitbox.h > obsHitbox.y
+        ) {
+            gameOver();
+        }
+    }
+
+    collectibles.forEach((col, index) => {
+        if (
+            kandela.x < col.x + col.size &&
+            kandela.x + kandela.width > col.x &&
+            kandela.y < col.y + col.size &&
+            kandela.y + kandela.height > col.y
+        ) {
+            collectibles.splice(index, 1);
+            coins++;
+            score += 50;
+            createParticles(col.x, col.y, 10, '#00ff00');
+            document.getElementById('coins-val').innerText = coins;
+        }
+    });
+}
+
+function spawnManager() {
+    obstacleTimer++;
+    collectibleTimer++;
+
+    let spawnThreshold = 100 - (gameSpeed * 2.5); 
+    if (spawnThreshold < 35) spawnThreshold = 35;
+
+    if (obstacleTimer > spawnThreshold) {
+        if (Math.random() > 0.1) {
+            obstacles.push(new Obstacle());
+        }
+        obstacleTimer = 0;
+    }
+
+    if (collectibleTimer > 120) {
+        collectibles.push(new Collectible());
+        collectibleTimer = 0;
+    }
+}
+
+function gameOver() {
+    gameRunning = false;
+    cancelAnimationFrame(frameId);
+    
+    document.getElementById('game-over-screen').classList.remove('hidden');
+    document.getElementById('final-score').innerText = Math.floor(score);
+    document.getElementById('knowledge-box').style.display = 'block';
+    
+    const randomFact = neuroFacts[Math.floor(Math.random() * neuroFacts.length)];
+    document.getElementById('trivia-text').innerText = randomFact;
+}
+
+function animate() {
+    if (!gameRunning) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    gameSpeed += speedMultiplier;
+    
+    const displaySpeed = (gameSpeed / initialSpeed).toFixed(1);
+    document.getElementById('speed-val').innerText = displaySpeed + "x";
+    
+    drawBackground();
+    
+    score += 0.1 + (gameSpeed * 0.01); 
+    document.getElementById('score-val').innerText = Math.floor(score);
+
+    kandela.update();
+    kandela.draw();
+
+    spawnManager();
+
+    obstacles.forEach((obs, index) => {
+        obs.update();
+        obs.draw();
+        if (obs.markedForDeletion) obstacles.splice(index, 1);
+    });
+
+    collectibles.forEach((col, index) => {
+        col.update();
+        col.draw();
+        if (col.markedForDeletion) collectibles.splice(index, 1);
+    });
+    
+    particles.forEach((p, index) => {
+        p.update();
+        p.draw();
+        if (p.life <= 0) particles.splice(index, 1);
+    });
+
+    checkCollisions();
+
+    frameId = requestAnimationFrame(animate);
+}
+
+document.getElementById('start-btn').addEventListener('click', init);
+document.getElementById('restart-btn').addEventListener('click', init);
+
+// Initial Draw
+const b = new Building(50);
+b.draw(ctx, 0);
+
+</script>
+</body>
+</html>
