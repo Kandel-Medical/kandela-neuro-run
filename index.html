@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kandela: Neuro Run</title>
+    <title>Kandela: Neuro-Run</title>
     
     <!-- INTEGRAÇÃO TELEGRAM WEB APP -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -215,7 +215,7 @@
 
     <!-- Start Screen -->
     <div id="start-screen" class="ui-layer">
-        <h1>KANDELA<br>NEURO RUN</h1>
+        <h1>KANDELA<br>NEURO-RUN</h1>
         <p>Colete dados limpos e invoices.<br>Evite o ruído de 60Hz.</p>
         <button class="btn" id="start-btn">INICIAR SISTEMA</button>
         <div class="controls-hint">Toque na tela para pular<br>(Toque duplo = Pulo Duplo)</div>
@@ -223,7 +223,7 @@
 
     <!-- Game Over Screen -->
     <div id="game-over-screen" class="ui-layer hidden">
-        <h1>SINAL ARTEFATO</h1>
+        <h1>SÓ ARTEFATO</h1>
         <p>Conexão interrompida.</p>
         <div><span class="stat-label">SCORE FINAL:</span> <span class="stat-value" id="final-score">0</span></div>
         
@@ -278,25 +278,34 @@ resize();
 
 // --- DATABASE (KANDEL.iA) ---
 const neuroFacts = [
-    "O Filtro Notch (60Hz) remove ruído da rede elétrica, mas pode criar artefatos de 'ringing' em potenciais de latência curta.",
+    "O Filtro Notch (60Hz/50Hz) remove ruído da rede elétrica, mas pode distorcer potenciais de latência curta se usado indiscriminadamente. (artefato de 'ringing')",
     "O CMAP (Potencial de Ação Muscular Composto) avalia a integridade da junção neuromuscular e a condução motora.",
-    "A impedância ideal dos eletrodos deve ser < 5 kOhms. Impedância alta = Alto Ruído.",
+    "A impedância ideal dos eletrodos em PEs deve ser < 5 kOhms. Impedância alta = Alto Ruído. (boa relação sinal-ruído)",
     "Latência é o tempo (ms) entre o estímulo elétrico e o início da despolarização.",
+    "Latência é o tempo decorrido entre o estímulo elétrico e o início da resposta evocada.",
+    "A onda F avalia a condução proximal do nervo motor e a excitabilidade do neurônio motor alfa.",
     "A onda F avalia a condução proximal. Sua ausência pode indicar bloqueio proximal ou lesão radicular.",
+    "O Reflexo H é eletrofisiologicamente análogo ao reflexo miotático (tendíneo).",
     "O Reflexo H é o análogo elétrico do reflexo miotático. Útil em radiculopatias S1.",
+    "Em IOM, Potenciais Evocados Motores (MEP) são altamente sensíveis à anestesia inalatória. Prefira TIVA (Anestesia Venosa Total).",
     "Em IOM, Anestésicos Halogenados suprimem os MEPs (Motores). Prefira Propofol/Remifentanil (TIVA).",
-    "O sistema Neurosoft exporta nativamente para EDF+, permitindo análise em softwares de terceiros.",
-    "Sempre informe o SN (Serial Number) ao abrir chamado. Sem SN = Sem Peça.",
+    "O sistema Neurosoft de EEG exporta nativamente para EDF+, permitindo análise em softwares de terceiros.",
+    "Sempre informe o Digisac ao abrir chamado. Sem Digisac = Ticket suspeito.",
+    "Ticket no Movidesk sem Nº da OS atrasa o atendimento. Sempre informe a OS do equipamento.",
     "Crosstalk: Mantenha cabos de estimulação longe dos cabos de registro para evitar artefato de estímulo.",
+    "Jitter é a variabilidade no intervalo interpotencial observada em estudos de Fibra Única (SFEMG).",
     "Jitter (SFEMG) aumentado é o marcador mais sensível para Miastenia Gravis.",
-    "Aterramento (Ground): Sempre entre o estimulo e o registro. Funciona como um 'dreno' de corrente.",
+    "A Montagem Referencial usa um eletrodo ativo sobre o músculo (ou local que tem potencial) e uma referência em local inativo (tendão/osso).",
+    "Aterramento (Ground): Útil entre o estimulo e o registro. Funciona como um 'dreno' de corrente.",
     "SSEP (Somatossensitivo): Monitora a integridade das colunas dorsais da medula.",
     "TOF (Train of Four): Monitora o nível de bloqueio neuromuscular. 4 respostas iguais = Sem bloqueio.",
     "Estimulação Repetitiva: Queda > 10% na amplitude (decremento) sugere distúrbio pós-sináptico.",
-    "Invoices vencidas bloqueiam o suporte avançado. A Kandela checa liquidez via comando 'parcelas'.",
-    "Fibra Óptica: Essencial em sala cirúrgica para isolar o paciente da rede elétrica do computador.",
-    "Ganho (Sensibilidade): Medido em uV/div ou mV/div. Ajusta o 'tamanho vertical' da onda.",
-    "Varredura (Timebase): Medido em ms/div. Ajusta a 'velocidade' do traçado.",
+    "O teste de Estimulação Repetitiva é crucial para diagnóstico de Miastenia Gravis.",
+    "Invoices vencidas bloqueiam o envio de licenças atualizadas. Use a Kandela para checar liquidez!",
+    "Escutar o cliente e confiar nele são coisas diferentes! Foque em reunir o máximo de informações para agir da maneira mais esclarecida."
+    "Antes de perguntar de forma abobada pra Neurosoft, confira internamente com seus colegas ou com os Especialistas."
+    "Ganho (Sensibilidade): Medido em uV/div ou mV/div. Ajusta o 'tamanho vertical' da onda. Escala vertical.",
+    "Varredura (Velocidade): Medido em ms/div. Ajusta a 'velocidade' do traçado. Escala horizontal",
     "Ruído de 60Hz parece uma 'corda grossa' no sinal. Verifique o aterramento do paciente!"
 ];
 
@@ -808,4 +817,5 @@ b.draw(ctx, 0);
 
 </script>
 </body>
+
 </html>
